@@ -1,0 +1,48 @@
+
+      // Realizar un lookup para obtener el id del pais al que esta asignado la moneda
+      const idPais = await cds.transaction(req).run(
+        SELECT.one.from('CatalogService.monedas.drafts').where({ ID: req.data.ID }).columns('to_paises_ID')
+      );
+
+
+
+      // Verificar si ya existe una moneda registrada en este país
+      const monedaDuplicada = await cds.transaction(req).run(
+        SELECT.from('CatalogService.monedas.drafts').where({ Currency: nombreMoneda, to_paises_ID: idPais.to_paises_ID })
+      );
+
+      // Verificar que la moneda sea una moneda valida para el registro
+      const monedaValida = await cds.transaction(req).run(
+        SELECT.from(monedas).where({ Currency: nombreMoneda })
+      );
+
+      
+      if (monedaDuplicada.length > 1) {
+        req.error(409, `La moneda '${nombreMoneda}' ya se encuentra registrada en el país.`);
+      }
+
+      if (monedaValida.length < 1) {
+        req.error(409, `La moneda '${nombreMoneda}' no es una moneda valida.`);
+      }
+
+
+      // Realizar un lookup para obtener el código de la moneda
+      const codigoMoneda = await cds.transaction(req).run(
+        SELECT.one.from('agrocappture_monedas').where({ Currency: nombreMoneda }).columns('Code')
+      );
+
+      if (codigoMoneda != undefined) {
+
+        // Actualizar el registro existente con el nuevo valor del código de moneda
+        await cds.transaction(req).run(
+          UPDATE('CatalogService.monedas.drafts')
+            .set({ Code: codigoMoneda.code })
+            .where({ Currency: nombreMoneda })
+        );
+
+      }
+
+
+    }
+
+  });
